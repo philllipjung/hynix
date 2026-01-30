@@ -2022,3 +2022,4 @@ Threshold: 10MB
 → executor minMember: 템플릿 원본 (예: 2)
 → 템플릿 원본대로 제출
 ```
+# Pipeline Test
