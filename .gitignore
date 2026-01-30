@@ -1,0 +1,68 @@
+# Binaries
+hynix
+microservice
+service-common
+minio
+
+# Logs
+*.log
+server.log
+
+# Editor
+*.swp
+.*.swp
+*.swo
+
+# IDE
+.vscode/
+.idea/
+.claude/
+
+# OS
+.DS_Store
+Thumbs.db
+.X*-lock
+
+# Temporary files
+*.tmp
+*.temp
+flb_*.db
+
+# Docker
+*.pid
+
+# Test/Report files
+TEST_REPORT_*.md
+FLUENT_BIT_*.md
+IDENTIFICATION_*.md
+EXECUTOR_*.md
+opensearch-*.md
+
+# Claude task outputs
+claude/
+
+# Minikube logs
+minikube_*.log
+juju-*
+
+# Query files
+query-*.json
+test-*.sh
+check-*.sh
+
+# Spark test files
+spark-*.yaml
+test-*.yaml
+start-*.sh
+setup-*.sh
+
+# Archive files
+*.tar.gz
+*.deb
+*.zip
+
+# Old configs
+fluent-bit-*.conf
+fluent-bit-*.yaml
+fluent-bit-*.sh
+install-*.sh

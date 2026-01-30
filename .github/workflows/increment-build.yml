@@ -1,0 +1,48 @@
+name: Increment Build Number
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - master
+
+jobs:
+  increment-build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install jq
+        run: sudo apt-get update && sudo apt-get install -y jq
+
+      - name: Increment build number for 0002_wfbm
+        id: increment
+        run: |
+          # Read current build number
+          CURRENT=$(jq -r '.config_specs[] | select(.provision_id == "0002_wfbm") | .build_number.number' config/config.json)
+          echo "Current build number: $CURRENT"
+
+          # Increment build number
+          NEW=$((CURRENT + 1))
+          echo "New build number: $NEW"
+          echo "new_build_number=$NEW" >> $GITHUB_OUTPUT
+
+          # Update config.json
+          jq "(.config_specs[] | select(.provision_id == \"0002_wfbm\") | .build_number.number) |= \"$NEW\"" config/config.json > config/config.json.tmp
+          mv config/config.json.tmp config/config.json
+
+          # Verify the change
+          UPDATED=$(jq -r '.config_specs[] | select(.provision_id == "0002_wfbm") | .build_number.number' config/config.json)
+          echo "Updated build number: $UPDATED"
+
+      - name: Commit and push
+        run: |
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "actions@github.com"
+          git add config/config.json
+          git commit -m "Build ${{ github.run_number }}: Increment build number to ${{ steps.increment.outputs.new_build_number }}" || echo "No changes to commit"
+          git push

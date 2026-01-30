@@ -1,0 +1,40 @@
+{
+  "config_specs": [
+    {
+      "provision_id": "0001_wfbm",
+      "enabled": "true",
+      "resource_calculation": {
+        "minio": "/root/hynix/kubernetes.zip",
+        "threshold": 10,
+        "min_queue": "min",
+        "max_queue": "max"
+      },
+      "gang_scheduling": {
+        "cpu": "1",
+        "memory": "5",
+        "executor": "1"
+      },
+      "build_number": {
+        "number": "7"
+      }
+    },
+    {
+      "provision_id": "0002_wfbm",
+      "enabled": "true",
+      "resource_calculation": {
+        "minio": "/root/hynix/kubernetes.zip",
+        "threshold": 10,
+        "min_queue": "min",
+        "max_queue": "max"
+      },
+      "gang_scheduling": {
+        "cpu": "5",
+        "memory": "10",
+        "executor": "1"
+      },
+      "build_number": {
+        "number": "5"
+      }
+    }
+  ]
+}
