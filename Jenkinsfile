@@ -43,7 +43,7 @@ pipeline {
             }
         }
         
-        stage('Commit Changes') {
+        stage('Commit and Tag') {
             steps {
                 withCredentials([usernamePassword(
                     credentialsId: 'github-service-comm',
@@ -56,9 +56,18 @@ pipeline {
                         git config user.email "jenkins@ci.local"
                         git add config/config.json
                         git commit -m "Build ${BUILD_NUMBER}: Update build number for 0002_wfbm" || echo "No changes to commit"
+
+                        # Create annotated tag
+                        echo "Creating tag: build-${BUILD_NUMBER}"
+                        git tag -a "build-${BUILD_NUMBER}" -m "Jenkins Build #${BUILD_NUMBER} - 0002_wfbm"
+
+                        # Push commit and tags
                         echo "Pushing to GitHub..."
                         git push https://${GITHUB_USER}:${GITHUB_TOKEN}@github.com/philllipjung/hynix.git HEAD:main
-                        echo "✅ Push completed!"
+                        git push https://${GITHUB_USER}:${GITHUB_TOKEN}@github.com/philllipjung/hynix.git --tags
+                        
+                        echo "✅ Build ${BUILD_NUMBER} completed!"
+                        echo "✅ Tag: build-${BUILD_NUMBER} created and pushed"
                     '''
                 }
             }
@@ -70,6 +79,7 @@ pipeline {
             echo "=========================================="
             echo "✅ Build ${BUILD_NUMBER} - SUCCESS"
             echo "config/config.json updated successfully"
+            echo "Tag: build-${BUILD_NUMBER}"
             echo "=========================================="
         }
         failure {
