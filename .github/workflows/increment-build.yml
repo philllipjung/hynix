@@ -15,6 +15,12 @@ jobs:
         uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Configure git
+        run: |
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "actions@github.com"
 
       - name: Install jq
         run: sudo apt-get update && sudo apt-get install -y jq
@@ -41,8 +47,6 @@ jobs:
 
       - name: Commit and push
         run: |
-          git config --global user.name "GitHub Actions"
-          git config --global user.email "actions@github.com"
           git add config/config.json
           git commit -m "Build ${{ github.run_number }}: Increment build number to ${{ steps.increment.outputs.new_build_number }}" || echo "No changes to commit"
-          git push
+          git push https://${{ secrets.SERVICE_COMM_TOKEN }}@github.com/philllipjung/hynix.git HEAD:main
