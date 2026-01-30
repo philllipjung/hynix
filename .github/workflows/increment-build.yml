@@ -7,6 +7,9 @@ on:
       - main
       - master
 
+permissions:
+  contents: write
+
 jobs:
   increment-build:
     runs-on: ubuntu-latest
@@ -19,8 +22,8 @@ jobs:
 
       - name: Configure git
         run: |
-          git config --global user.name "GitHub Actions"
-          git config --global user.email "actions@github.com"
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
       - name: Install jq
         run: sudo apt-get update && sudo apt-get install -y jq
@@ -28,25 +31,16 @@ jobs:
       - name: Increment build number for 0002_wfbm
         id: increment
         run: |
-          # Read current build number
           CURRENT=$(jq -r '.config_specs[] | select(.provision_id == "0002_wfbm") | .build_number.number' config/config.json)
           echo "Current build number: $CURRENT"
-
-          # Increment build number
           NEW=$((CURRENT + 1))
           echo "New build number: $NEW"
           echo "new_build_number=$NEW" >> $GITHUB_OUTPUT
-
-          # Update config.json
           jq "(.config_specs[] | select(.provision_id == \"0002_wfbm\") | .build_number.number) |= \"$NEW\"" config/config.json > config/config.json.tmp
           mv config/config.json.tmp config/config.json
-
-          # Verify the change
-          UPDATED=$(jq -r '.config_specs[] | select(.provision_id == "0002_wfbm") | .build_number.number' config/config.json)
-          echo "Updated build number: $UPDATED"
 
       - name: Commit and push
         run: |
           git add config/config.json
           git commit -m "Build ${{ github.run_number }}: Increment build number to ${{ steps.increment.outputs.new_build_number }}" || echo "No changes to commit"
-          git push https://${{ secrets.SERVICE_COMM_TOKEN }}@github.com/philllipjung/hynix.git HEAD:main
+          git push
