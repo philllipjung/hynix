@@ -1,0 +1,38 @@
+# Binaries
+hynix
+microservice
+service-common
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Log files
+*.log
+server.log
+
+# Temporary files
+*.tmp
+*.temp
+
+# Minio
+minio/
+minio
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Kubernetes (archive)
+archive/
+
+# Build artifacts
+*.zip
+*.tar.gz

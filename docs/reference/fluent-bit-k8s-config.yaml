@@ -1,0 +1,262 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: logging
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: fluent-bit
+  namespace: logging
+  labels:
+    app: fluent-bit
+---
+# ClusterRole for Kubernetes access
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: fluent-bit
+  labels:
+    app: fluent-bit
+rules:
+  # Kubernetes API 접근
+  - apiGroups: [""]
+    resources:
+      - namespaces
+      - pods
+      - pods/log
+    verbs: ["get", "list", "watch"]
+
+  # Kubernetes Events 접근
+  - apiGroups: [""]
+    resources:
+      - events
+    verbs: ["get", "list", "watch"]
+
+  # SparkApplication CR 접근
+  - apiGroups: ["sparkoperator.k8s.io"]
+    resources:
+      - sparkapplications
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: fluent-bit
+  labels:
+    app: fluent-bit
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: fluent-bit
+subjects:
+  - kind: ServiceAccount
+    name: fluent-bit
+    namespace: logging
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: fluent-bit-config
+  namespace: logging
+  labels:
+    app: fluent-bit
+data:
+  fluent-bit.conf: |
+    [SERVICE]
+        Flush         1
+        Daemon        off
+        Log_Level     info
+        Parsers_File  parsers.conf
+
+    # INPUT: 컨테이너 로그 수집
+    [INPUT]
+        Name              tail
+        Path              /var/log/containers/*.log
+        Exclude_Path      /var/log/containers/*fluent-bit*.log
+        Parser            docker
+        Tag               kube.*
+        Refresh_Interval  1
+        Mem_Buf_Limit     50MB
+        Skip_Long_Lines   On
+        DB                /fluent-bit/tmp/flb_containers.db
+        DB.Sync           Normal
+        DB.Locking        True
+
+    # INPUT: Kubernetes Events
+    [INPUT]
+        Name              kubernetes_events
+        Tag               k8s.events
+
+    # INPUT: Kubelet Systemd/Journald Logs
+    [INPUT]
+        Name              systemd
+        Tag               journal.kubelet
+        Systemd_Filter    _SYSTEMD_UNIT=kubelet.service
+        Read_From_Tail    True
+        Path              /run/log/journal
+
+    # FILTER: Kubernetes 메타데이터
+    [FILTER]
+        Name                kubernetes
+        Match               kube.*
+        Kube_URL            https://kubernetes.default.svc:443
+        Kube_CA_File        /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+        Kube_Token_File      /var/run/secrets/kubernetes.io/serviceaccount/token
+        Merge_Log           On
+        Keep_Log            Off
+        K8s-Logging.Parser  On
+        K8s-Logging.Exclude Off
+        Labels              On
+        Annotations        On
+
+    # FILTER: 로그 타입 태그 추가
+    [FILTER]
+        Name                modify
+        Match               kube.*
+        Add                 log_type     container
+
+    [FILTER]
+        Name                modify
+        Match               k8s.events
+        Add                 log_type     kubernetes_event
+
+    [FILTER]
+        Name                modify
+        Match               journal.kubelet
+        Add                 log_type     kubelet
+        Add                 log_source   k8s_node
+
+    # OUTPUT: OpenSearch 통합
+    [OUTPUT]
+        Name                opensearch
+        Match               *
+        Host                192.168.201.152
+        Port                9200
+        Index               unified-logs
+        Suppress_Type_Name  On
+        Retry_Limit         3
+        HTTP_User           -
+        HTTP_Passwd         -
+        tls                 Off
+        tls.verify          Off
+        generate_id         On
+
+  parsers.conf: |
+    [PARSER]
+        Name        docker
+        Format      json
+        Time_Key    time
+        Time_Format %Y-%m-%dT%H:%M:%S.%L
+
+    [PARSER]
+        Name        cri
+        Format      regex
+        Regex       ^(?<time>[^ ]+) (?<stream>stdout|stderr) (?<logtag>[^ ]*) (?<log>.*)$
+        Time_Key    time
+        Time_Format %Y-%m-%dT%H:%M:%S.%L%z
+
+    [PARSER]
+        Name        syslog
+        Format      regex
+        Regex       ^\<(?<pri>[0-9]+)\>(?<time>[^ ]* {1,2}[^ ]* [^ ]*) (?<host>[^ ]*) (?<ident>[a-zA-Z0-9_\/\.\-]*)(?:\[(?<pid>[0-9]+)\])?(?:[^\:]*\:)? *(?<message>.*)$
+        Time_Key    time
+        Time_Format %b %d %H:%M:%S
+
+    [PARSER]
+        Name        json
+        Format      json
+        Time_Key    time
+        Time_Format %Y-%m-%dT%H:%M:%S.%L
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: fluent-bit
+  namespace: logging
+  labels:
+    app: fluent-bit
+spec:
+  selector:
+    matchLabels:
+      app: fluent-bit
+  template:
+    metadata:
+      labels:
+        app: fluent-bit
+    spec:
+      serviceAccountName: fluent-bit
+      hostNetwork: false
+      containers:
+      - name: fluent-bit
+        image: fluent/fluent-bit:2.2.0
+        imagePullPolicy: Always
+        env:
+        - name: FLUENT_OPENSEARCH_HOST
+          value: "192.168.201.152"
+        - name: FLUENT_OPENSEARCH_PORT
+          value: "9200"
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        volumeMounts:
+        # 컨테이너 로그
+        - name: varlog
+          mountPath: /var/log
+        # CRI 로그 (containerd)
+        - name: varlibdockercontainers
+          mountPath: /var/lib/docker/containers
+          readOnly: true
+        # 설정 파일
+        - name: config
+          mountPath: /fluent-bit/etc/fluent-bit.conf
+          subPath: fluent-bit.conf
+        - name: config
+          mountPath: /fluent-bit/etc/parsers.conf
+          subPath: parsers.conf
+        # 임시 디렉토리
+        - name: tmpfluentbit
+          mountPath: /fluent-bit/tmp
+        # Journald (systemd)
+        - name: runlogjournal
+          mountPath: /run/log/journal
+          readOnly: true
+        resources:
+          limits:
+            memory: 200Mi
+          requests:
+            cpu: 100m
+            memory: 100Mi
+      volumes:
+      # 호스트 로그 디렉토리
+      - name: varlog
+        hostPath:
+          path: /var/log
+      # Docker/containerd 로그
+      - name: varlibdockercontainers
+        hostPath:
+          path: /var/lib/docker/containers
+      # ConfigMap
+      - name: config
+        configMap:
+          name: fluent-bit-config
+      # 임시 디렉토리
+      - name: tmpfluentbit
+        emptyDir: {}
+      # Journald
+      - name: runlogjournal
+        hostPath:
+          path: /run/log/journal
+      # /var/log/pods 권한 해결을 위한 설정
+      - name: varlogpods
+        hostPath:
+          path: /var/log/pods
+      tolerations:
+      - key: node-role.kubernetes.io/master
+        operator: Exists
+        effect: NoSchedule
+      - key: node-role.kubernetes.io/control-plane
+        operator: Exists
+        effect: NoSchedule
