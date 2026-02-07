@@ -1,0 +1,25 @@
+# Volume patch for OTEL Collector DaemonSet
+# This patch adds /var/log volume mount for log collection
+#
+# Apply with:
+# kubectl patch daemonset otel-collector-opentelemetry-collector-agent \
+#   -n default --type='json' -p="$(cat volume-patch.yaml)"
+[
+  {
+    "op": "add",
+    "path": "/spec/template/spec/volumes/-",
+    "value": {
+      "name": "varlog",
+      "hostPath": {"path": "/var/log"}
+    }
+  },
+  {
+    "op": "add",
+    "path": "/spec/template/spec/containers/0/volumeMounts/-",
+    "value": {
+      "name": "varlog",
+      "mountPath": "/var/log",
+      "readOnly": true
+    }
+  }
+]
