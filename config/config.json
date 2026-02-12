@@ -4,7 +4,7 @@
       "provision_id": "0001_wfbm",
       "enabled": "true",
       "resource_calculation": {
-        "minio": "1234/5678/<<service_id>>/",
+        "minio": "1234/5678/<<service_id>>",
         "threshold": 10000000,
         "min_queue": "min",
         "max_queue": "max"
@@ -40,7 +40,7 @@
       "provision_id": "0003_wfbm-longrun",
       "enabled": "true",
       "resource_calculation": {
-        "minio": "1234/5678/<<service_id>>/",
+        "minio": "1234/5678/<<service_id>>",
         "threshold": 10000000,
         "min_queue": "min",
         "max_queue": "max"
@@ -51,14 +51,14 @@
         "executor": "2"
       },
       "build_number": {
-        "number": "4.0.1"
+        "number": "0"
       }
     },
     {
       "provision_id": "0004_wfbm",
       "enabled": "true",
       "resource_calculation": {
-        "minio": "1234/5678/<<service_id>>/",
+        "minio": "1234/5678/<<service_id>>",
         "threshold": 10000000,
         "min_queue": "min",
         "max_queue": "max"
@@ -69,7 +69,7 @@
         "executor": "10"
       },
       "build_number": {
-        "number": "4.0.1"
+        "number": "0"
       }
     }
   ]

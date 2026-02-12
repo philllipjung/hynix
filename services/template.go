@@ -53,8 +53,13 @@ func ApplyServiceIDLabelsWithUIDToYAML(yamlStr string, serviceID string, categor
 
 // ApplyBuildNumberToYAML - YAML 문자열에 빌드 번호 적용
 // 템플릿 파일의 BUILD_NUMBER를 실제 빌드 번호로 교체
+// buildNumber는 minor 버전이며, 전체 버전은 major.minor.patch 형식으로 생성
+// major=4 (상수), patch=1 (상수)
+// 예: buildNumber="10" → "4.10.1"
 func ApplyBuildNumberToYAML(yamlStr string, buildNumber string) string {
-	return strings.ReplaceAll(yamlStr, "BUILD_NUMBER", buildNumber)
+	// 전체 버전 생성: 4.{minor}.1
+	fullVersion := fmt.Sprintf("4.%s.1", buildNumber)
+	return strings.ReplaceAll(yamlStr, "BUILD_NUMBER", fullVersion)
 }
 
 // UpdateExecutorMinMember - task-groups annotation의 executor minMember 업데이트

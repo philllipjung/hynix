@@ -33,33 +33,18 @@ pipeline {
 
                     if (targetEntry) {
                         def currentNumber = targetEntry.build_number.number
-                        echo "Current build_number in config: ${currentNumber}"
+                        echo "Current minor version in config: ${currentNumber}"
 
-                        // Check if current format is decimal (e.g., "4.0.1")
-                        def newNumber
-                        if (currentNumber =~ /^\d+\.\d+\.\d+$/) {
-                            // Parse version parts: major.minor.patch
-                            def parts = currentNumber.split('\\.')
-                            def major = parts[0]
-                            def patch = parts[2]
-                            // Replace middle part with BUILD_NUMBER
-                            newNumber = "${major}.${BUILD_NUMBER}.${patch}"
-                            echo "Decimal format detected. Updating: ${currentNumber} -> ${newNumber}"
-                        } else {
-                            // Non-decimal format, just use BUILD_NUMBER as-is
-                            newNumber = "${BUILD_NUMBER}"
-                            echo "Non-decimal format. Setting to: ${newNumber}"
-                        }
-
-                        // Update the config
-                        targetEntry.build_number.number = newNumber
+                        // Update minor version to BUILD_NUMBER
+                        targetEntry.build_number.number = "${BUILD_NUMBER}"
+                        echo "Updated minor version: ${currentNumber} -> ${BUILD_NUMBER}"
 
                         // Write back to config.json
                         writeFile file: "${CONFIG_FILE}", text: groovy.json.JsonOutput.toJson(config)
-                        // Pretty print the JSON
+                        // Pretty print JSON
                         sh "jq '.' ${CONFIG_FILE} > ${CONFIG_FILE}.tmp && mv ${CONFIG_FILE}.tmp ${CONFIG_FILE}"
 
-                        echo "Updated build_number to: ${newNumber}"
+                        echo "Build number updated successfully to: ${BUILD_NUMBER}"
                     } else {
                         error("Provision ID ${PROVISION_ID} not found in config!")
                     }
@@ -99,7 +84,7 @@ pipeline {
 
     post {
         success {
-            echo "Build number updated successfully to ${BUILD_NUMBER}"
+            echo "Pipeline completed successfully - minor version updated to ${BUILD_NUMBER}"
         }
         failure {
             echo "Pipeline failed!"
