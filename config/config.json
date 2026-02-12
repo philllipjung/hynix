@@ -37,7 +37,7 @@
       }
     },
     {
-      "provision_id": "0003_wfbm-longrun",
+      "provision_id": "0003_wfbm",
       "enabled": "true",
       "resource_calculation": {
         "minio": "1234/5678/<<service_id>>",
