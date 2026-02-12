@@ -1,0 +1,76 @@
+{
+  "config_specs": [
+    {
+      "provision_id": "0001_wfbm",
+      "enabled": "true",
+      "resource_calculation": {
+        "minio": "1234/5678/<<service_id>>/",
+        "threshold": 10000000,
+        "min_queue": "min",
+        "max_queue": "max"
+      },
+      "gang_scheduling": {
+        "cpu": "1",
+        "memory": "5",
+        "executor": "1"
+      },
+      "build_number": {
+        "number": "4.0.1"
+      }
+    },
+    {
+      "provision_id": "0002_wfbm",
+      "enabled": "true",
+      "resource_calculation": {
+        "minio": "1234/5678/<<service_id>>/input/",
+        "threshold": 10000000,
+        "min_queue": "min",
+        "max_queue": "max"
+      },
+      "gang_scheduling": {
+        "cpu": "5",
+        "memory": "10",
+        "executor": "1"
+      },
+      "build_number": {
+        "number": "4.0.1"
+      }
+    },
+    {
+      "provision_id": "0003_wfbm-longrun",
+      "enabled": "true",
+      "resource_calculation": {
+        "minio": "1234/5678/<<service_id>>/",
+        "threshold": 10000000,
+        "min_queue": "min",
+        "max_queue": "max"
+      },
+      "gang_scheduling": {
+        "cpu": "1",
+        "memory": "1",
+        "executor": "2"
+      },
+      "build_number": {
+        "number": "4.0.1"
+      }
+    },
+    {
+      "provision_id": "0004_wfbm",
+      "enabled": "true",
+      "resource_calculation": {
+        "minio": "1234/5678/<<service_id>>/",
+        "threshold": 10000000,
+        "min_queue": "min",
+        "max_queue": "max"
+      },
+      "gang_scheduling": {
+        "cpu": "32",
+        "memory": "64",
+        "executor": "10"
+      },
+      "build_number": {
+        "number": "4.0.1"
+      }
+    }
+  ]
+}

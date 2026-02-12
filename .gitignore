@@ -1,0 +1,64 @@
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+main
+microservice
+service-common
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool
+*.out
+
+# Go workspace file
+go.work
+
+# Dependency directories
+vendor/
+
+# Build artifacts
+bin/
+dist/
+
+# IDE specific files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS specific files
+.DS_Store
+Thumbs.db
+
+# Log files
+*.log
+server.log
+api-server-*.log
+
+# Temporary files
+*.tmp
+*.temp
+/tmp
+
+# Kubernetes zip file (not needed in repo)
+kubernetes.zip
+
+# MinIO data
+minio/
+
+# Archive files
+archive/
+
+# Compiled Object files
+*.o
+*.a
+
+# Compiled binaries
+hynix
+minio
+proxy
