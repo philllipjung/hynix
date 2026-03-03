@@ -5,9 +5,23 @@
       "enabled": "true",
       "resource_calculation": {
         "minio": "1234/5678/<<service_id>>",
-        "threshold": 10000000,
-        "min_queue": "min",
-        "max_queue": "max"
+        "tiers": [
+          {
+            "name": "small",
+            "max_size": 10000000,
+            "queue": "default.small"
+          },
+          {
+            "name": "medium",
+            "min_size": 10000000,
+            "queue": "default.medium"
+          },
+          {
+            "name": "large",
+            "min_size": 53687091200,
+            "queue": "default.large"
+          }
+        ]
       },
       "gang_scheduling": {
         "cpu": "1",
@@ -23,9 +37,23 @@
       "enabled": "true",
       "resource_calculation": {
         "minio": "1234/5678/<<service_id>>/input/",
-        "threshold": 10000000,
-        "min_queue": "min",
-        "max_queue": "max"
+        "tiers": [
+          {
+            "name": "small",
+            "max_size": 10000000,
+            "queue": "default.small"
+          },
+          {
+            "name": "medium",
+            "min_size": 10000000,
+            "queue": "default.medium"
+          },
+          {
+            "name": "large",
+            "min_size": 53687091200,
+            "queue": "default.large"
+          }
+        ]
       },
       "gang_scheduling": {
         "cpu": "5",
@@ -33,7 +61,7 @@
         "executor": "1"
       },
       "build_number": {
-        "number": "11"
+        "number": "0"
       }
     },
     {
@@ -41,9 +69,23 @@
       "enabled": "true",
       "resource_calculation": {
         "minio": "1234/5678/<<service_id>>",
-        "threshold": 10000000,
-        "min_queue": "min",
-        "max_queue": "max"
+        "tiers": [
+          {
+            "name": "small",
+            "max_size": 10000000,
+            "queue": "default.small"
+          },
+          {
+            "name": "medium",
+            "min_size": 10000000,
+            "queue": "default.medium"
+          },
+          {
+            "name": "large",
+            "min_size": 53687091200,
+            "queue": "default.large"
+          }
+        ]
       },
       "gang_scheduling": {
         "cpu": "1",
@@ -59,9 +101,23 @@
       "enabled": "true",
       "resource_calculation": {
         "minio": "1234/5678/<<service_id>>",
-        "threshold": 10000000,
-        "min_queue": "min",
-        "max_queue": "max"
+        "tiers": [
+          {
+            "name": "small",
+            "max_size": 10000000,
+            "queue": "default.small"
+          },
+          {
+            "name": "medium",
+            "min_size": 10000000,
+            "queue": "default.medium"
+          },
+          {
+            "name": "large",
+            "min_size": 53687091200,
+            "queue": "default.large"
+          }
+        ]
       },
       "gang_scheduling": {
         "cpu": "32",

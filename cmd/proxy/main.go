@@ -197,17 +197,18 @@ func k8sProxyHandler(w http.ResponseWriter, r *http.Request, path string) {
 	if strings.Contains(apiPath, "/proxy/") {
 		proxyParts := strings.Split(apiPath, "/proxy/")
 		if len(proxyParts) >= 2 {
-			podName := strings.Split(proxyParts[0], "/")[6] // Extract pod name from "namespaces/{ns}/pods/{podname}"
+			parts := strings.Split(proxyParts[0], "/")
+			if len(parts) <= 6 {
+				http.Error(w, "Invalid pod path", http.StatusBadRequest)
+				return
+			}
+			podName := parts[6] // Extract pod name from "/api/v1/namespaces/{ns}/pods/{podname}"
 			metricsPath := "/" + proxyParts[1]
 			namespace := "default"
 
 			// Use kubectl exec to get metrics from the pod
-			// Support both /metrics/driver/prometheus/ and /metrics/executors/prometheus/ endpoints
-			proxyPath := metricsPath
-			if strings.HasSuffix(metricsPath, "/") {
-				proxyPath = strings.TrimSuffix(metricsPath, "/")
-			}
-			cmd := exec.Command("kubectl", "exec", "-n", namespace, podName, "--", "curl", "-s", "http://localhost:4040"+proxyPath)
+			// Keep trailing slash as required by Spark metrics endpoint
+			cmd := exec.Command("kubectl", "exec", "-n", namespace, podName, "--", "curl", "-s", "http://localhost:4040"+metricsPath)
 			output, err := cmd.CombinedOutput()
 			if err != nil {
 				http.Error(w, fmt.Sprintf("Failed to get metrics: %v", err), http.StatusBadGateway)
@@ -216,8 +217,9 @@ func k8sProxyHandler(w http.ResponseWriter, r *http.Request, path string) {
 			}
 
 			w.Header().Set("Access-Control-Allow-Origin", "*")
+			w.Header().Set("Content-Type", "text/plain")
 			w.Write(output)
-			log.Printf("Proxied metrics from pod %s: %s", podName, metricsPath)
+			log.Printf("Proxied metrics from pod %s: %s (%d bytes)", podName, metricsPath, len(output))
 			return
 		}
 	}
