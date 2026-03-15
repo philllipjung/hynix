@@ -6,7 +6,7 @@ import (
 	"service-common/logger"
 	"service-common/metrics"
 	"service-common/services"
-	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -19,6 +19,7 @@ type ReferenceRequest struct {
 	ServiceID   string
 	Category    string
 	UID         string
+	Arguments   string // Optional: 공백으로 구분된 arguments
 }
 
 // GetSparkReference - Reference 엔드포인트 핸들러
@@ -76,6 +77,7 @@ func parseReferenceRequest(c *gin.Context) ReferenceRequest {
 		ServiceID:   c.Query("service_id"),
 		Category:    c.Query("category"),
 		UID:         c.Query("uid"),
+		Arguments:   c.Query("arguments"),
 	}
 }
 
@@ -84,6 +86,8 @@ func validateReferenceRequest(req *ReferenceRequest) error {
 	if req.ProvisionID == "" || req.ServiceID == "" || req.Category == "" || req.UID == "" {
 		return fmt.Errorf("필수 파라미터가 누락되었습니다. provision_id, service_id, category, uid가 모두 필요합니다")
 	}
+	// 서비스 아이디 정규화: _를 -로 변환
+	req.ServiceID = strings.ReplaceAll(req.ServiceID, "_", "-")
 	return nil
 }
 
@@ -178,6 +182,9 @@ func handleReferenceDisabled(c *gin.Context, startTime time.Time, req *Reference
 	// build_number 적용
 	yamlTemplate = services.ApplyBuildNumberToYAML(yamlTemplate, provisionConfig.BuildNumber.Number)
 
+	// Arguments 적용 (사용자 제공 시)
+	yamlTemplate = services.ApplyArgumentsToYAML(yamlTemplate, req.Arguments)
+
 	// 서비스 ID 라벨 적용
 	yamlOutput := services.ApplyServiceIDLabelsToYAML(yamlTemplate, req.ServiceID)
 
@@ -203,15 +210,20 @@ func handleReferenceEnabled(c *gin.Context, startTime time.Time, req *ReferenceR
 
 	// 리소스 계산 수행 (MinIO에서 파일 크기 및 메타데이터 확인)
 	// MinIO 경로: config의 resource_calculation.minio 값에서 <<service_id>>를 service_id로 치환
-	queue, fileSize, metadata, count, err := services.CalculateQueueWithMetadata(
+	// 3단계 티어 기반 큐 및 executor 계산 (small/medium/large)
+	tierResult, err := services.CalculateQueueWithTiers(
 		provisionConfig.ResourceCalculation.Minio,
 		req.ServiceID,
-		provisionConfig.ResourceCalculation.Threshold,
-		provisionConfig.ResourceCalculation.MinQueue,
-		provisionConfig.ResourceCalculation.MaxQueue,
+		provisionConfig.ResourceCalculation.Tiers,
 	)
 
-	logResourceCalculationReference(req, provisionConfig, queue, fileSize)
+	queue := tierResult.Queue
+	executorCount := tierResult.ExecutorInt
+	fileSize := tierResult.TotalSize
+	metadata := tierResult.Metadata
+	count := tierResult.ObjectCount
+
+	logResourceCalculationReference(req, provisionConfig, queue, fileSize, executorCount)
 
 	// 5. MinIO 메타데이터 로그 출력
 	if metadata != nil {
@@ -237,24 +249,21 @@ func handleReferenceEnabled(c *gin.Context, startTime time.Time, req *ReferenceR
 	// 큐 설정 적용
 	yamlTemplate = updateQueueInYAML(yamlTemplate, queue)
 
-	// Gang Scheduling 설정 적용
-	executorMinMember, err := strconv.Atoi(provisionConfig.GangScheduling.Executor)
-	if err != nil {
-		handleReferenceExecutorError(c, startTime, req, err)
-		return
-	}
-
-	logGangSchedulingConfigReference(req, provisionConfig, executorMinMember)
-	recordGangSchedulingMetrics(req.ProvisionID, provisionConfig, executorMinMember)
+	// Gang Scheduling 설정 적용 (티어에서 결정된 executor 개수 사용)
+	logGangSchedulingConfigReference(req, provisionConfig, executorCount)
+	recordGangSchedulingMetrics(req.ProvisionID, provisionConfig, executorCount)
 
 	// task-groups의 executor minMember 업데이트
-	yamlTemplate = updateExecutorMinMemberInYAML(yamlTemplate, executorMinMember)
+	yamlTemplate = updateExecutorMinMemberInYAML(yamlTemplate, executorCount)
 
-	// Template 처리 로직 2: config.json의 gang_scheduling.executor를 spec.executor.instances에 대입
-	yamlTemplate = services.UpdateExecutorInstances(yamlTemplate, executorMinMember)
+	// Template 처리 로직 2: 티어에서 결정된 executor 개수를 spec.executor.instances에 대입
+	yamlTemplate = services.UpdateExecutorInstances(yamlTemplate, executorCount)
 
 	// Template 처리 로직 3: config.json의 build_number.number를 BUILD_NUMBER에 대입
 	yamlTemplate = services.ApplyBuildNumberToYAML(yamlTemplate, provisionConfig.BuildNumber.Number)
+
+	// Arguments 적용 (사용자 제공 시)
+	yamlTemplate = services.ApplyArgumentsToYAML(yamlTemplate, req.Arguments)
 
 	// 서비스 ID 라벨 적용 (UID 포함)
 	yamlOutput := services.ApplyServiceIDLabelsWithUIDToYAML(yamlTemplate, req.ServiceID, req.Category, req.UID)
@@ -299,7 +308,7 @@ func handleReferenceExecutorError(c *gin.Context, startTime time.Time, req *Refe
 }
 
 // logResourceCalculationReference logs resource calculation for reference
-func logResourceCalculationReference(req *ReferenceRequest, config *services.ConfigSpec, queue string, fileSize int64) {
+func logResourceCalculationReference(req *ReferenceRequest, config *services.ConfigSpec, queue string, fileSize int64, executorCount int) {
 	logger.Logger.Info("리소스 계산 완료",
 		zap.String(LogFieldEndpoint, "reference"),
 		zap.String(LogFieldProvisionID, req.ProvisionID),
@@ -307,8 +316,8 @@ func logResourceCalculationReference(req *ReferenceRequest, config *services.Con
 		zap.String(LogFieldCategory, req.Category),
 		zap.String("file_path", config.ResourceCalculation.Minio),
 		zap.Int64("file_size_bytes", fileSize),
-		zap.Int64("threshold_bytes", config.ResourceCalculation.Threshold),
 		zap.String("selected_queue", queue),
+		zap.Int("executor_count", executorCount),
 	)
 }
 

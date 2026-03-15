@@ -7,4 +7,5 @@ type CreateRequest struct {
 	Category    string `json:"category" binding:"required"`
 	Region      string `json:"region" binding:"required"`
 	UID         string `json:"uid" binding:"required"`
+	Arguments   string `json:"arguments" binding:"optional"` // Optional: 공백으로 구분된 arguments (예: "111 222 333")
 }

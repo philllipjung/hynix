@@ -62,6 +62,87 @@ func ApplyBuildNumberToYAML(yamlStr string, buildNumber string) string {
 	return strings.ReplaceAll(yamlStr, "BUILD_NUMBER", fullVersion)
 }
 
+// ApplyArgumentsToYAML - YAML의 arguments 섹션을 사용자 제공 arguments로 교체
+// arguments는 공백으로 구분된 문자열 (예: "111 222 333")
+// arguments가 비어있거나 비어있는 문자열("")이면 template의 기본 arguments 유지
+// template에 arguments 섹션이 없으면 새로 생성
+func ApplyArgumentsToYAML(yamlStr string, arguments string) string {
+	// arguments가 비어있으면 template의 기본값 유지
+	if arguments == "" {
+		return yamlStr
+	}
+
+	// 공백으로 구분하여 arguments 배열 생성
+	argArray := strings.Fields(arguments)
+	if len(argArray) == 0 {
+		return yamlStr
+	}
+
+	// YAML에 arguments 섹션이 있는지 확인
+	hasArgumentsSection := strings.Contains(yamlStr, "arguments:")
+
+	if !hasArgumentsSection {
+		// arguments 섹션이 없으면 새로 생성
+		// "batchSchedulerOptions:" 라인 찾아서 그 앞에 삽입
+		targetLine := "batchSchedulerOptions:"
+		if idx := strings.Index(yamlStr, targetLine); idx >= 0 {
+			// 들여쓰기 레벨 계산 (targetLine 앞의 빈 공백 확인)
+			lineStart := strings.LastIndex(yamlStr[:idx], "\n") + 1
+			prefix := yamlStr[lineStart:idx]
+			// 빈 공백 확인 후 들여쓰기 계산 (최소 2칸 들여쓰기)
+			indent := strings.TrimRight(prefix, " ")
+			if indent == "" {
+				indent = "  " // 최소 2칸
+			}
+
+			// arguments 섹션 생성
+			argsBlock := fmt.Sprintf("%sarguments:\n", indent)
+			for _, arg := range argArray {
+				argsBlock += fmt.Sprintf("%s  - \"%s\"\n", indent, arg)
+			}
+			argsBlock += targetLine
+
+			// YAML에 삽입
+			result := yamlStr[:idx] + argsBlock + yamlStr[idx:]
+			return result
+		}
+	}
+
+	// arguments 섹션이 있으면 교체
+	lines := strings.Split(yamlStr, "\n")
+	resultLines := make([]string, 0)
+	skipOldArgs := false
+
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+
+		// arguments: 섹션 찾기
+		if strings.HasPrefix(trimmed, "arguments:") {
+			resultLines = append(resultLines, line)
+			indentLevel := len(line) - len(strings.TrimLeft(line, " "))
+			// 사용자 arguments 추가
+			indent := strings.Repeat(" ", indentLevel+2)
+			for _, arg := range argArray {
+				resultLines = append(resultLines, fmt.Sprintf("%s- \"%s\"", indent, arg))
+			}
+			skipOldArgs = true
+			continue
+		}
+
+		// 기존 arguments 건너뛰기
+		if skipOldArgs {
+			if trimmed != "" && !strings.HasPrefix(trimmed, "-") {
+				skipOldArgs = false
+			}
+			continue
+		}
+
+		resultLines = append(resultLines, line)
+	}
+
+	return strings.Join(resultLines, "\n")
+}
+
 // UpdateExecutorMinMember - task-groups annotation의 executor minMember 업데이트
 func UpdateExecutorMinMember(taskGroupsStr string, minMember int) (string, error) {
 	var taskGroups []map[string]interface{}
@@ -145,7 +226,7 @@ func ApplySparkFileCountToYAML(yamlStr string, count int) string {
 				// spark.file.count 삽입
 				newLines := make([]string, len(lines)+1)
 				copy(newLines, lines[:i])
-				newLines[i] = fmt.Sprintf("%sspark.file.count: %d", indent, count)
+				newLines[i] = fmt.Sprintf("%sspark.file.count: \"%d\"", indent, count)
 				newLines = append(newLines, lines[i:]...)
 				return strings.Join(newLines, "\n")
 			}
@@ -166,7 +247,7 @@ func ApplySparkFileCountToYAML(yamlStr string, count int) string {
 				indent := strings.Repeat(" ", 8) // sparkConf 들여쓰기
 				newLines := make([]string, len(lines)+1)
 				copy(newLines, lines[:i+1])
-				newLines[i+1] = fmt.Sprintf("%sspark.file.count: %d", indent, count)
+				newLines[i+1] = fmt.Sprintf("%sspark.file.count: \"%d\"", indent, count)
 				newLines = append(newLines, lines[i+1:]...)
 				return strings.Join(newLines, "\n")
 			}

@@ -1,7 +1,6 @@
 // Package main provides the Hynix microservice for Spark application management.
 //
 // This service exposes REST APIs for:
-//   - Creating Spark applications with dynamic resource allocation
 //   - Referencing Spark application configurations
 //   - Integrating with Yunikorn for gang scheduling
 //
@@ -105,7 +104,6 @@ func setupAPIRoutes(router *gin.Engine) {
 	api := router.Group("/api/v1")
 	{
 		api.GET("/spark/reference", handlers.GetSparkReference)
-		api.POST("/spark/create", handlers.CreateSparkApplication)
 	}
 }
 
