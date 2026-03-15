@@ -6,11 +6,30 @@ import (
 	"service-common/logger"
 	"service-common/metrics"
 	"service-common/services"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
+)
+
+const (
+	// LogFieldKeys for structured logging
+	LogFieldEndpoint     = "endpoint"
+	LogFieldProvisionID  = "provision_id"
+	LogFieldServiceID    = "service_id"
+	LogFieldCategory     = "category"
+	LogFieldRegion       = "region"
+	LogFieldNamespace    = "namespace"
+	LogFieldResourceName = "resource_name"
+	LogFieldEnabled      = "enabled"
+	LogFieldReason       = "reason"
+	LogFieldDurationMs   = "duration_ms"
+
+	// Status values
+	StatusSuccess = "success"
+	StatusError   = "error"
 )
 
 // ReferenceRequest - Reference 엔드포인트 요청 파라미터
@@ -334,6 +353,17 @@ func logGangSchedulingConfigReference(req *ReferenceRequest, config *services.Co
 	)
 }
 
+// recordGangSchedulingMetrics records gang scheduling metrics
+func recordGangSchedulingMetrics(provisionID string, config *services.ConfigSpec, executorMinMember int) {
+	metrics.ExecutorMinMember.WithLabelValues(provisionID).Set(float64(executorMinMember))
+
+	cpuValue, _ := strconv.ParseFloat(config.GangScheduling.CPU, 64)
+	metrics.GangSchedulingResources.WithLabelValues(provisionID, "cpu").Set(cpuValue)
+
+	memoryValue, _ := strconv.ParseFloat(config.GangScheduling.Memory, 64)
+	metrics.GangSchedulingResources.WithLabelValues(provisionID, "memory").Set(memoryValue)
+}
+
 // logReferenceYAMLComplete logs YAML completion with full YAML content
 func logReferenceYAMLComplete(req *ReferenceRequest, yamlOutput string, startTime time.Time, enabled bool) {
 	mode := "비활성화 모드"
@@ -392,3 +422,55 @@ func logMinIOMetadataReference(req *ReferenceRequest, metadata *services.MinIOMe
 	logger.Logger.Info(string(logJSON))
 }
 
+// updateQueueInYAML updates the queue value in YAML
+func updateQueueInYAML(yamlStr string, queue string) string {
+	// batchSchedulerOptions.queue 값 교체
+	lines := strings.Split(yamlStr, "\n")
+	for i, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "queue:") {
+			indent := strings.Repeat(" ", len(line)-len(strings.TrimLeft(line, " ")))
+			lines[i] = fmt.Sprintf("%squeue: root.%s", indent, queue)
+			break
+		}
+	}
+	return strings.Join(lines, "\n")
+}
+
+// updateExecutorMinMemberInYAML updates executor minMember in task-groups annotation
+func updateExecutorMinMemberInYAML(yamlStr string, minMember int) string {
+	lines := strings.Split(yamlStr, "\n")
+	inTaskGroups := false
+	taskGroupStarted := false
+
+	for i, line := range lines {
+		trimmed := strings.TrimSpace(line)
+
+		// task-groups 배열 시작 확인
+		if strings.Contains(trimmed, "yunikorn.apache.org/task-groups:") {
+			inTaskGroups = true
+			continue
+		}
+
+		// task-groups 섹션 종료 확인
+		if inTaskGroups && (strings.HasPrefix(trimmed, "serviceAccount:") || !strings.HasPrefix(trimmed, "|") && !strings.HasPrefix(trimmed, "[") && trimmed != "" && !strings.HasPrefix(trimmed, "-") && !strings.HasPrefix(trimmed, "{") && !strings.HasPrefix(trimmed, "}")) {
+			inTaskGroups = false
+			taskGroupStarted = false
+		}
+
+		// executor task-group 찾기
+		if inTaskGroups && strings.Contains(trimmed, `"name": "spark-executor"`) {
+			taskGroupStarted = true
+		}
+
+		// executor의 minMember 업데이트
+		if taskGroupStarted && strings.Contains(trimmed, `"minMember":`) {
+			indent := strings.Repeat(" ", len(line)-len(strings.TrimLeft(line, " ")))
+			lines[i] = fmt.Sprintf("%s\"minMember\": %d,", indent, minMember)
+			taskGroupStarted = false
+			break
+		}
+	}
+
+	return strings.Join(lines, "\n")
+}
